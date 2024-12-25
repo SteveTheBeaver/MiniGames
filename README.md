@@ -6,7 +6,17 @@ This repository contains a collection of three Python-based minigames. Each game
 
 To run these minigames, you will need a Python interpreter installed on your computer. If you don't have Python installed, you can download it from [python.org](https://www.python.org/downloads/).
 
+The Snake and Fruit Catcher games use the `winsound` module (which is built into Python on Windows, and intended for Windows devices) for sound effects, and the Fruit Catcher game also uses the `pygame` library for graphics and game mechanics.
+
 **Minimum version required**: Python 3.x
+
+**Additional dependencies**:
+- For the Fruit Catcher game:
+  - Install `pygame` by running:
+
+    ```bash
+    pip install pygame
+    ```
 
 ## Installation
 
