@@ -23,7 +23,7 @@ The Snake and Fruit Catcher games use the `winsound` module (which is built into
 1. Clone this repository to your local machine:
 
    ```bash
-   git clone https://github.com/yourusername/Python-Minigames.git
+   git clone https://github.com/SeveTheBeaver/Python-Minigames.git
    
 
 ## Cite
