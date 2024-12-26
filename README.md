@@ -24,3 +24,10 @@ The Snake and Fruit Catcher games use the `winsound` module (which is built into
 
    ```bash
    git clone https://github.com/yourusername/Python-Minigames.git
+   
+
+## Cite
+
+**I followed the tutorials linked below then added my own code later**
+BroCode (Snake): https://www.youtube.com/watch?v=bfRwxS5d0SI&t=1787s
+Baraltech (Pong): https://www.youtube.com/watch?v=iSZXroL4apY
