@@ -1,6 +1,6 @@
 # Python Minigames
 
-This repository contains a collection of three Python-based minigames with a main hub/gme selector. Each game is a simple yet fun project designed to showcase basic Python programming concepts.
+This repository contains a collection of three Python-based minigames with a main hub/game selector. Each game is a simple yet fun project designed to showcase basic Python programming concepts.
 
 ## Requirements
 
