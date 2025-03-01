@@ -1,6 +1,20 @@
 from tkinter import *
 import random
-import winsound  # Added for Windows sound support
+import platform
+import os
+
+# Sound handling for cross-platform compatibility
+def play_sound(frequency=500, duration=50):
+    try:
+        if platform.system() == "Windows":
+            import winsound
+            winsound.Beep(frequency, duration)
+        elif platform.system() == "Darwin":  # macOS
+            os.system(f"afplay /System/Library/Sounds/Ping.aiff")
+        elif platform.system() == "Linux":
+            os.system(f"play -n synth {duration/1000} sine {frequency} &>/dev/null || true")
+    except:
+        pass  # Fail silently if sound doesn't work
 
 # Global speed constants
 SLOW_SPEED = 145
@@ -20,9 +34,10 @@ BACKGROUND_COLOR = "#000000"
 
 # Global variable to store selected speed
 GAME_SPEED = REGULAR_SPEED
+# Global variable for tracking snake growth
+growth_remaining = 0
 
 class Snake:
-
     def __init__(self):
         self.body_size = BODY_PARTS
         self.coordinates = []
@@ -37,24 +52,37 @@ class Snake:
 
 
 class Food:
-
     def __init__(self, is_green_grape=False, is_red_grape=False):
-        x = random.randint(0, (GAME_WIDTH / SPACE_SIZE)-1) * SPACE_SIZE
-        y = random.randint(0, (GAME_HEIGHT / SPACE_SIZE) - 1) * SPACE_SIZE
+        # Make sure food doesn't spawn on the snake
+        valid_position = False
+        while not valid_position:
+            x = random.randint(0, (GAME_WIDTH / SPACE_SIZE)-1) * SPACE_SIZE
+            y = random.randint(0, (GAME_HEIGHT / SPACE_SIZE) - 1) * SPACE_SIZE
+            
+            # Check if position overlaps with snake
+            valid_position = True
+            if 'snake' in globals():
+                for segment in snake.coordinates:
+                    if x == segment[0] and y == segment[1]:
+                        valid_position = False
+                        break
 
         self.coordinates = [x, y]
         self.is_green_grape = is_green_grape
         self.is_red_grape = is_red_grape
 
+        # Use tag to ensure food is always visible (on top)
         if is_green_grape:
-            canvas.create_oval(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill=GREEN_GRAPE_COLOR, tag="food")
+            self.item = canvas.create_oval(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill=GREEN_GRAPE_COLOR, tag="food", outline="white")
         elif is_red_grape:
-            canvas.create_oval(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill=RED_GRAPE_COLOR, tag="food")
+            self.item = canvas.create_oval(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill=RED_GRAPE_COLOR, tag="food", outline="white")
         else:
-            canvas.create_oval(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill=FOOD_COLOR, tag="food")
+            self.item = canvas.create_oval(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill=FOOD_COLOR, tag="food", outline="white")
 
 
 def next_turn(snake, food):
+    global growth_remaining, score, high_score
+    
     x, y = snake.coordinates[0]
 
     if direction == "up":
@@ -66,54 +94,36 @@ def next_turn(snake, food):
     elif direction == "right":
         x += SPACE_SIZE
 
-    snake.coordinates.insert(0, (x, y))
+    # Insert as list to maintain consistency with initialization
+    snake.coordinates.insert(0, [x, y])
 
-    square = canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill=SNAKE_COLOR)
-
+    square = canvas.create_rectangle(x, y, x + SPACE_SIZE, y + SPACE_SIZE, fill=SNAKE_COLOR, tag="snake")
     snake.squares.insert(0, square)
 
     if x == food.coordinates[0] and y == food.coordinates[1]:
-        global score, high_score
-
-        # Play a beep sound when eating a grape
-        winsound.Beep(500, 50)  # Added Windows sound effect
+        # Play a sound when eating a grape
+        play_sound()
 
         # Check if it's a green grape or red grape or regular food
         if food.is_green_grape:
-            score += 2  # Green grape is worth 2 points, double the purple grape
-            # Add two body parts when green grape is eaten
-            for _ in range(2):
-                last_x, last_y = snake.coordinates[-1]
-                new_body_part = (last_x, last_y)
-                snake.coordinates.append(new_body_part)
-                square = canvas.create_rectangle(last_x, last_y, last_x + SPACE_SIZE, last_y + SPACE_SIZE, fill=SNAKE_COLOR)
-                snake.squares.append(square)
-        
+            score += 2  # Green grape is worth 2 points
+            growth_remaining += 2  # Add two body parts
         elif food.is_red_grape:
-            score += 4  # Red grape is worth 4 points, double the green grape
-            # Add four body parts when red grape is eaten
-            for _ in range(4):
-                last_x, last_y = snake.coordinates[-1]
-                new_body_part = (last_x, last_y)
-                snake.coordinates.append(new_body_part)
-                square = canvas.create_rectangle(last_x, last_y, last_x + SPACE_SIZE, last_y + SPACE_SIZE, fill=SNAKE_COLOR)
-                snake.squares.append(square)
+            score += 4  # Red grape is worth 4 points
+            growth_remaining += 4  # Add four body parts
         else:
             score += 1  # Regular food is worth 1 point
-            # Add one body part when purple grape is eaten
-            last_x, last_y = snake.coordinates[-1]
-            new_body_part = (last_x, last_y)
-            snake.coordinates.append(new_body_part)
-            square = canvas.create_rectangle(last_x, last_y, last_x + SPACE_SIZE, last_y + SPACE_SIZE, fill=SNAKE_COLOR)
-            snake.squares.append(square)
-
+            growth_remaining += 1  # Add one body part
+            
         # Update high score if current score is higher
         if score > high_score:
             high_score = score
+            save_high_score(high_score)  # Save high score to file
 
         label.config(text="Score:{} Hi Score:{}".format(score, high_score))
 
-        canvas.delete("food")
+        # Delete only the food, not all canvas items
+        canvas.delete(food.item)
 
         # Randomly decide food type
         random_value = random.random()
@@ -125,17 +135,20 @@ def next_turn(snake, food):
             food = Food()
 
     else:
-        del snake.coordinates[-1]
-
-        canvas.delete(snake.squares[-1])
-
-        del snake.squares[-1]
+        # Only remove tail if we're not in growth mode
+        if growth_remaining > 0:
+            growth_remaining -= 1
+        else:
+            # Remove the last segment
+            del snake.coordinates[-1]
+            canvas.delete(snake.squares[-1])
+            del snake.squares[-1]
 
     if check_collisions(snake):
         game_over()
-
     else:
         window.after(GAME_SPEED, next_turn, snake, food)
+
 
 def change_direction(new_direction):
     global direction
@@ -170,21 +183,26 @@ def check_collisions(snake):
 
 
 def game_over():
+    # Unbind all game control keys
+    unbind_all_controls()
+    
     canvas.delete(ALL)
     canvas.create_text(canvas.winfo_width()/2, canvas.winfo_height()/2,
                        font=('consolas',70), text="GAME OVER", fill="purple", tag="gameover")
     canvas.create_text(canvas.winfo_width()/2, canvas.winfo_height()/2 + 100,
                        font=('consolas',20), text="Press Enter to Restart", fill="red", tag="restart")
+    
     window.bind('<Return>', restart_game)
 
 
 def restart_game(event=None):
-    global snake, food, score, direction
+    global snake, food, score, direction, growth_remaining
 
     # Reset game state
     canvas.delete(ALL)
     score = 0
     direction = 'down'
+    growth_remaining = 0
     label.config(text="Score:{} Hi Score:{}".format(score, high_score))
 
     # Unbind the restart key
@@ -254,6 +272,10 @@ def show_title_screen():
     canvas.create_text(canvas.winfo_width()/2, canvas.winfo_height()/2 + 100,
                        font=('consolas', 15), text="Use WASD or Arrow Keys to Move", fill="yellow")
     
+    # Add grape types info
+    canvas.create_text(canvas.winfo_width()/2, canvas.winfo_height()/2 + 150,
+                       font=('consolas', 14), text="Purple: 1 point, Green: 2 points, Red: 4 points", fill="white")
+    
     # Bind space key to speed selection
     window.bind('<space>', lambda event: show_speed_selection())
 
@@ -265,11 +287,15 @@ def start_game(event=None):
             widget.destroy()
     
     # Reset game state
-    global snake, food, score, direction
+    global snake, food, score, direction, growth_remaining
     canvas.delete(ALL)
     score = 0
     direction = 'down'
+    growth_remaining = 0
     label.config(text="Score:{} Hi Score:{}".format(score, high_score))
+
+    # Bind direction keys
+    bind_controls()
 
     # Create new snake and food - always start with regular food
     snake = Snake()
@@ -279,13 +305,55 @@ def start_game(event=None):
     next_turn(snake, food)
 
 
+def bind_controls():
+    # Bind direction keys
+    window.bind('<Left>', lambda event: change_direction('left'))
+    window.bind('<Right>', lambda event: change_direction('right'))
+    window.bind('<Up>', lambda event: change_direction('up'))
+    window.bind('<Down>', lambda event: change_direction('down'))
+
+    # Add WASD controls
+    window.bind('<a>', lambda event: change_direction('left'))
+    window.bind('<d>', lambda event: change_direction('right'))
+    window.bind('<w>', lambda event: change_direction('up'))
+    window.bind('<s>', lambda event: change_direction('down'))
+
+
+def unbind_all_controls():
+    # Unbind all game control keys
+    window.unbind('<Left>')
+    window.unbind('<Right>')
+    window.unbind('<Up>')
+    window.unbind('<Down>')
+    window.unbind('<a>')
+    window.unbind('<d>')
+    window.unbind('<w>')
+    window.unbind('<s>')
+
+
+def load_high_score():
+    try:
+        with open("snake_high_score.txt", "r") as file:
+            return int(file.read().strip())
+    except:
+        return 0
+
+
+def save_high_score(score):
+    try:
+        with open("snake_high_score.txt", "w") as file:
+            file.write(str(score))
+    except:
+        pass  # Fail silently if can't save
+
+
 # Set up the window
 window = Tk()
 window.title("Wow Such Wonderful Grapes!")
 window.resizable(False, False)
 
-# Initialize high score for the entire game session
-high_score = 0
+# Initialize high score
+high_score = load_high_score()
 
 score = 0
 direction = 'down'
@@ -308,18 +376,6 @@ x = int((screen_width/2) - (window_width/2))
 y = int((screen_height/2) - (window_height/2))
 
 window.geometry(f"{window_width}x{window_height}+{x}+{y}")
-
-# Bind direction keys
-window.bind('<Left>', lambda event: change_direction('left'))
-window.bind('<Right>', lambda event: change_direction('right'))
-window.bind('<Up>', lambda event: change_direction('up'))
-window.bind('<Down>', lambda event: change_direction('down'))
-
-# Add WASD controls
-window.bind('<a>', lambda event: change_direction('left'))
-window.bind('<d>', lambda event: change_direction('right'))
-window.bind('<w>', lambda event: change_direction('up'))
-window.bind('<s>', lambda event: change_direction('down'))
 
 # Show title screen initially
 show_title_screen()
